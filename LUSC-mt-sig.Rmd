@@ -1,0 +1,63 @@
+---
+title: "Mitochondrial gene expression in lung cancer: Significantly overexpressed genes in LUSC"
+output: pdf_document
+---
+
+Report created: `r Sys.time()`
+
+This document summarizes analysis of TCGA data from lung cancer projects to assess expression patterns and survival among lung cancer patients.
+
+```{r setup,include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse)
+```
+
+```{r gene_data, include=FALSE}
+# read in data
+fpkm <- read_csv("TCGA-LUSC.csv")
+```
+
+### Does overexpression vary with stage?
+
+```{r}
+# read in gene significance
+pval_ttest <- read_csv("mt-LUSC-ttest-sig.csv")
+# create list of only significantly overexpressed genes
+pval_ttest_sig <- pval_ttest %>%
+  filter(ttest_sig == TRUE, overexpressed == TRUE)
+```
+
+```{r}
+# tumor stage data
+#table(fpkm$tumor_stage) # includes "not reported"
+table(fpkm$ajcc_pathologic_stage)
+# group into Stage I, II, III/IV
+fpkm <- fpkm %>%
+  # remove subcategories
+  collapse_stages(ajcc_pathologic_stage) %>%
+  # combine III and IV
+  mutate(collapsed_stages = str_replace_all(collapsed_stages, "Stage IV", "Stage III"))
+table(fpkm$collapsed_stages)
+```
+
+```{r}
+# reformat data
+fpkm %>%
+  dplyr::select(collapsed_stages, pval_ttest_sig$mt_gene) %>%
+  pivot_longer()
+```
+
+
+### Does overexpression vary with smoking?
+
+```{r}
+table(fpkm$paper_Smoking.Status)
+```
+
+
+fpkm$paper_Smoking.Status
+
+## EGFR/KRAS/LKB1 expression
+
+LUSC: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3466113/

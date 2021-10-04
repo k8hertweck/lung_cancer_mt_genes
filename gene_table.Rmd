@@ -1,0 +1,49 @@
+---
+title: "Mitochondrial gene expression in lung cancer: gene annotations
+output: pdf_document
+---
+
+Report created: `r Sys.time()`
+
+```{r}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+```
+
+```{r}
+# import data
+annotations <- read_delim("mart_export.txt")
+# combine synonyms
+synonyms <- annotations %>%
+  select(`Gene stable ID`, `Gene Synonym`) %>%
+  unique() %>%
+  group_by(`Gene stable ID`) %>%
+  #tally()
+  summarize(`Gene Synonym` = paste(`Gene Synonym`, collapse=", "))
+# combine GO terms
+go_terms <- annotations %>%
+  select(`Gene stable ID`, `GO term name`) %>%
+  unique() %>%
+  group_by(`Gene stable ID`) %>%
+  #tally()
+  summarize(`GO term name` = paste(`GO term name`, collapse=", "))
+# filter and combine data
+annotations <- annotations %>%
+  select(`Gene name`, `Gene stable ID`, `Gene description`) %>%
+  unique() %>%
+  left_join(synonyms) %>%
+  left_join(go_terms)
+annotations
+write_csv(annotations, "annotations.csv")
+```
+
+
+```{r annotation, eval=FALSE, include=FALSE}
+head(keys(org.Hs.eg.db, keytype="GENENAME"))
+
+annotations_orgDb <- AnnotationDbi::select(org.Hs.eg.db,
+                                           keys = pval$mt_gene,
+                                           columns = c("SYMBOL", "GENENAME"),
+                                           keytype = "SYMBOL")
+```
+

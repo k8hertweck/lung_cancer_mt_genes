@@ -1,0 +1,135 @@
+---
+title: "Mitochondrial gene expression in lung cancer: Significantly overexpressed genes in LUSC"
+output: pdf_document
+---
+
+Report created: `r Sys.time()`
+
+```{r setup,include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse)
+```
+
+## Figure 1: Expression graphs for all genes in LUAD
+
+```{r}
+fpkm_luad <- read_csv("TCGA-LUAD.csv")
+```
+
+Sample size: 
+
+- normal, n = `r nrow(filter(fpkm_luad, shortLetterCode == "NT"))`
+- tumor, n = `r nrow(filter(fpkm_luad, shortLetterCode == "TP"))`
+
+### A. Genes not significantly different between tumor and normal
+
+![](luad_expression_a.jpg)
+### B. Genes significantly downregulated in cancer
+
+![](luad_expression_b.jpg)
+### C. Genes significantly upregulated in cancer
+
+![](luad_expression_c.jpg)
+
+## Figure 2: Expression graphs for all genes in LUSC
+
+```{r}
+fpkm_lusc <- read_csv("TCGA-LUSC.csv")
+```
+
+Sample size: 
+
+- normal, green (left), n = `r `nrow(filter(fpkm_lusc, shortLetterCode == "NT"))`
+- tumor, purple (right), n = `r nrow(filter(fpkm_lusc, shortLetterCode == "TP"))`
+
+### A. Genes not significantly different between tumor and normal
+
+![](lusc_expression_a.jpg)
+### B. Genes significantly downregulated in cancer
+
+![](lusc_expression_b.jpg)
+### C. Genes significantly upregulated in cancer
+
+![](lusc_expression_c.jpg)
+
+
+## Figure 3: Tumor stage and gene expression in sigificantly expressed genes in LUAD
+
+### A. Genes significantly downregulated in cancer
+
+![](luad_stages_a.jpg)
+
+### B. Genes significantly upregulated in cancer
+
+![](luad_stages_b.jpg)
+
+## Figure 4: Tumor stage and gene expression in sigificantly expressed genes in LUSC
+
+### A. Genes significantly downregulated in cancer
+
+![](lusc_stages_a.jpg)
+### B. Genes significantly upregulated in cancer
+
+![](luad_stages_b.jpg)
+
+## Figure 5: Survival for significantly expressed genes in LUAD
+
+![](luad_surv_ACSF2.jpg)
+
+![](luad_surv_GCAT.jpg)
+
+![](luad_surv_PDK2.jpg)
+
+![](luad_surv_SLC25A4.jpg)
+
+## Figure 6: Survival for significantly expressed genes in LUSC
+
+![](lusc_surv_MACROD1.jpg)
+
+![](lusc_surv_SLC25A4.jpg)
+
+## Figure 7: Smoking in significantly expressed genes in LUAD
+
+### A. Genes significantly downregulated in cancer
+
+![](luad_smoking_a.jpg)
+
+
+### B. Genes significantly upregulated in cancer
+
+![](luad_smoking_b.jpg)
+
+## Figure 8: Smoking in significantly expressed genes in LUSC
+
+### A. Genes significantly downregulated in cancer
+
+![](lusc_smoking_a.jpg)
+
+### B. Genes significantly upregulated in cancer
+
+![](lusc_smoking_b.jpg)
+
+## Figure 9: subtypes in LUAD
+
+### A. Genes significantly downregulated in cancer
+
+![](luad_subtype_a.jpg)
+
+
+### B. Genes significantly upregulated in cancer
+
+![](luad_subtype_b.jpg)
+
+
+## Figure 10: subtypes in LUSC
+
+### A. Genes significantly downregulated in cancer
+
+![](lusc_subtype_a.jpg)
+
+### B. Genes significantly upregulated in cancer
+
+![](lusc_subtype_b.jpg)
+
+## Figure 15: Pathways for genes significant for expression and survival

@@ -1,0 +1,68 @@
+---
+title: "Mitochondrial gene expression in lung cancer: `r params$cancer` summary"
+output: pdf_document
+params:
+  cancer: "LUSC"
+---
+
+Report created: `r Sys.time()`
+
+This document summarizes analysis of TCGA data from lung cancer projects to assess expression patterns and survival among lung cancer patients.
+
+```{r setup,include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, AnnotationDbi, org.Hs.eg.db)
+```
+
+```{r data, include=FALSE}
+# read in data
+pval <- read_csv(stringr::str_c("mt-", params$cancer,"-pvalue.csv"))
+# remove (empty) first row
+pval <- pval[-1, ]
+```
+
+### `r params$cancer`: Does expression differ between tumor and normal?
+
+```{r ttest, message=FALSE, results='asis'}
+# correct for multiple tests
+pval <- pval %>%
+  mutate(pval_ttest_adj = p.adjust(pvalue_ttest, method = "bonferroni")) %>%
+  mutate(pval_ttest_adj = signif(pval_ttest_adj, digits = 6)) %>%
+  mutate(ttest_sig = pval_ttest_adj < 0.05)
+pval_ttest <- pval %>%
+  dplyr::select(mt_gene, pvalue_ttest, pval_ttest_adj, ttest_sig, overexpressed) %>%
+  arrange(mt_gene)
+knitr::kable(pval_ttest)
+```
+
+```{r save_ttest}
+# save final table to file
+write_csv(pval_ttest, file = stringr::str_c("mt-", params$cancer, "-ttest-sig.csv"))
+```
+
+### `r params$cancer`: Does survival differ between high and low expression?
+
+**Important note**: The p-values that appear on the survival plots for individual genes have not been corrected for multiple comparison.
+
+```{r surv, message=FALSE, results='asis'}
+# correct for multiple tests
+pval <- pval %>%
+  mutate(pval_surv_adj = p.adjust(pvalue_surv, method = "bonferroni")) %>%
+  mutate(pval_surv_adj = signif(pval_surv_adj, digits = 6)) %>%
+  mutate(surv_sig = pval_surv_adj < 0.05)
+# create table for printing
+pval_surv <- pval %>%
+  # remove samples that were not significantly different in previous analysis
+  filter(ttest_sig == TRUE) %>%
+  dplyr::select(mt_gene, pvalue_surv, pval_surv_adj, surv_sig) %>%
+  arrange(mt_gene)
+knitr::kable(pval_surv)
+```
+
+Only the `r nrow(pval_surv)` genes which differed significantly between tumor and normal samples were included in this analysis.
+
+```{r save_surv}
+# save final table to file
+write_csv(pval_surv, file = stringr::str_c("mt-", params$cancer, "-surv-sig.csv"))
+```

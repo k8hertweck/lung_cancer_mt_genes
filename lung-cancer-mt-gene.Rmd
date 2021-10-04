@@ -1,0 +1,146 @@
+---
+title: "Mitochondrial gene expression in lung cancer: `r params$gene` in `r params$cancer`"
+output: pdf_document
+params: 
+  gene: "SLC25A4"
+  cancer: "LUSC"
+---
+
+Report created: `r Sys.time()`
+
+This analysis uses TCGA data from the `r params$cancer` project to assess `r params$gene` expression patterns and survival among lung cancer patients.
+
+```{r setup,include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, survival, survminer)
+library(tcgaHelpers)
+```
+
+```{r load_data, include=FALSE}
+fpkm <- read_csv(stringr::str_c("TCGA-", params$cancer, ".csv"))
+```
+
+### Overall expression pattern
+
+```{r tumor_exp, echo=FALSE, warning=FALSE, fig.height=3, fig.width=3}
+# assess expression for tumor vs normal
+fpkmTum <- fpkm %>%
+  select(params$gene, shortLetterCode, vital_status, days_to_death) %>%
+  filter(shortLetterCode == "NT" | shortLetterCode == "TP") %>%
+  # code vital status for survival analysis 
+  mutate(vital = as.numeric(as_factor(vital_status)) - 1)
+# rename target gene column
+names(fpkmTum)[1] <- "test_gene"
+# adding column for gene expression categories
+fpkmTum <- fpkmTum %>%
+  mutate(gene_hl = test_gene)
+# perform t-test
+tum.results <- t.test(test_gene ~ shortLetterCode, data = fpkmTum) 
+# determine overexpressed status
+overexpress <- tum.results[["estimate"]][["mean in group NT"]] < tum.results[["estimate"]][["mean in group TP"]]
+# boxplot to compare distributions
+ggplot(fpkmTum, aes(shortLetterCode, test_gene)) + 
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(alpha = 0.3) +
+  labs(y = "log2 expression",
+       x = "sample") +
+  scale_x_discrete(labels = c("NT"="normal", "TP"="tumor")) +
+  theme_bw() 
+```
+
+Does `r params$gene` expression differ between normal
+(n = `r table(fpkmTum$shortLetterCode)[1]`) and 
+primary tumor (n = `r table(fpkmTum$shortLetterCode)[2]`) (t-test),
+and is it overexpressed?
+
+p = `r tum.results$p.value`
+
+overexpressed = `r overexpress`
+
+```{r hi_lo_median, eval=FALSE, include=FALSE}
+## assessing low and high expression based on median
+fpkmTum <- fpkmTum %>%
+  mutate(gene_hl = test_gene > median(test_gene))
+fpkmTum$gene_hl[fpkmTum$gene_hl == TRUE] <- "high"
+fpkmTum$gene_hl[fpkmTum$gene_hl == FALSE] <- "low"
+```
+
+The cutpoint (threshold between high and low gene expression)
+is empirically determined by the data:
+
+```{r hi_lo, echo=FALSE, message=FALSE}
+# determine cutpoint
+cut <- surv_cutpoint(fpkmTum, time = "days_to_death", event = "vital",
+   variables = "gene_hl")
+#summary(cut)
+# show plot
+cut_plot <- plot(cut)
+cut_plot$gene_hl
+# categorize based on cutpoint
+fpkmSurv <- surv_categorize(cut)
+```
+
+```{r histogram, echo=FALSE, message=FALSE}
+ggplot(fpkmTum) + 
+  geom_histogram(aes(test_gene), bins = 50) +
+  geom_vline(xintercept = cut$cutpoint$cutpoint) +
+  labs(title = "Distribution of expression in tumor samples") +
+  theme_bw()
+```
+
+## Survival analysis
+
+```{r survival}
+# fit model
+death_fit <- survfit(Surv(days_to_death, vital) ~ gene_hl, 
+                               data = fpkmSurv)
+# complete plot
+survPlot <- ggsurvplot(death_fit, 
+           data = fpkmSurv, 
+           risk.table = TRUE,
+           pval = TRUE,
+           pval.method = TRUE,
+           pval.coord = c(2000, 0.8),
+           pval.method.coord = c(2000, 0.9),
+           conf.int = TRUE,
+           xlim = c(0, 5000),
+           break.time.by = 500,
+           xlab = "days to death",
+           ggtheme = theme_bw(),
+           risk.table.y.text.col = TRUE,
+           risk.table.y.text = FALSE,
+           legend.labs = c("high", "low"))
+survPlot
+```
+
+```{r survival_fig}
+# plot for figure
+survPlot <- ggsurvplot(death_fit, 
+           data = fpkmSurv, 
+           conf.int = TRUE,
+           xlab = "",
+           ylab = "",
+           ggtheme = theme_bw(),
+           legend = "none",
+           palette = c("#7fc97f", "#beaed4")) # green=hi, purple=lo
+```
+
+```{r surv_diff}
+# calculate difference
+death_diff <- survdiff(Surv(days_to_death, vital) ~ gene_hl, 
+                               data = fpkmSurv)
+# calculate p-value
+p_diff <- 1 - pchisq(death_diff$chisq, length(death_diff$n) - 1)
+```
+
+```{r save_results}
+# save results to summary file
+write_csv(tibble(mt_gene = params$gene,
+                 pvalue_ttest = tum.results$p.value,
+                 overexpressed = overexpress, 
+                 pvalue_surv = p_diff),
+          file = stringr::str_c("mt-", params$cancer, "-pvalue.csv"),
+          append = TRUE)
+```
+

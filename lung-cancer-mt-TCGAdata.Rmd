@@ -1,0 +1,83 @@
+---
+title: "Mitochondrial gene expression in lung cancer: Data preparation, `r params$cancer`"
+output: pdf_document
+params:
+  cancer: "LUSC"
+---
+
+Report created: `r Sys.time()`
+
+This document summarizes TCGA data for `r params$cancer`.
+
+```{r setup,include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse)
+library(SummarizedExperiment)
+library(TCGAbiolinks)
+library(tcgaHelpers)
+```
+
+Mitochondrial genes included in this analysis represent gene names from [Ensembl](https://uswest.ensembl.org/index.html):
+
+```{r gene_names, include=FALSE}
+allGenes <- read_csv("mt-genes.csv")
+```
+
+```{r TCGA_summary}
+# view available data for a project
+#TCGAbiolinks:::getProjectSummary(stringr::str_c("TCGA-", params$cancer)
+```
+
+```{r load_data}
+fpkm <- geneDataTCGA(stringr::str_c("TCGA-", params$cancer), "~/GDCdata/")
+```
+
+Final genes for this analysis include:
+
+```{r gene_table}
+# create object of ensembl_gene_id and external_gene_name
+geneID <-rowData(fpkm)
+# extract only gene data for desired genes
+genes <- geneID %>%
+  as.data.frame() %>%
+  filter(external_gene_name %in% allGenes$gene) %>%
+  select(-original_ensembl_gene_id) %>%
+  remove_rownames()
+print(genes)
+```
+
+Available metadata:
+
+```{r meta, echo=FALSE}
+# extract metadata and filter unneeded columns
+meta <-as.data.frame(colData(fpkm))
+colnames(meta)
+```
+
+```{r lists}
+# find columns that are lists
+lists <- meta %>%
+  map(is.list) %>%
+  as_tibble %>%
+  pivot_longer(everything()) %>%
+  filter(value == TRUE)
+# filter these and other extraneous columns (contain no useful information)
+meta <- meta %>%
+  select(-lists$name, -contains("datetime"), -contains("state")) %>%
+  select_if(~sum(!is.na(.)) > 0) # remove columns with only NA
+```
+
+```{r extractGenes}
+# create final gene table
+fpkmGene <- extractGenes(fpkm, meta, genes)
+# transform counts
+fpkmGene <- gene_ex_transform(fpkmGene, genes$external_gene_name)
+write_csv(fpkmGene, stringr::str_c("TCGA-", params$cancer, ".csv"))
+```
+
+Tumor (TP) and normal (NT) samples:
+
+```{r tumor_table}
+dplyr::count(fpkmGene, shortLetterCode)
+```

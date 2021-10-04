@@ -1,0 +1,66 @@
+---
+title: "Mitochondrial gene expression in lung cancer: Significantly overexpressed genes in LUSC"
+output: pdf_document
+---
+
+Report created: `r Sys.time()`
+
+This document summarizes analysis of TCGA data from lung cancer projects to assess expression patterns and survival among lung cancer patients.
+
+LUAD: https://www.nature.com/articles/nature13385
+
+Please compare each significantly overexpressed gene with stage and grade and smoking, EGFR/KRAS/LKB1 expression
+
+```{r setup,include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse)
+```
+
+```{r gene_data, include=FALSE}
+# read in data
+fpkm <- read_csv(stringr::str_c("TCGA-LUAD.csv"))
+```
+
+### LUSC: Does overexpression vary with stage?
+
+LUSC: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3466113/
+
+```{r}
+# read in gene significance
+LUSC_pval_ttest <- read_csv("mt-LUAD-ttest-sig.csv")
+# show list of only significantly overexpressed genes
+LUSC_pval_ttest <- LUSC_pval_ttest %>%
+  filter(ttest_sig == TRUE, overexpressed == TRUE)
+```
+
+```{r}
+# tumor stage data
+#table(fpkm$tumor_stage) # includes "not reported"
+table(fpkm$ajcc_pathologic_stage)
+# group into Stage I, II, III/IV
+fpkm <- fpkm %>%
+  # remove subcategories
+  collapse_stages(ajcc_pathologic_stage) %>%
+  # combine III and IV (to Stage III)
+  mutate(collapsed_stages = str_replace_all(collapsed_stages, "Stage IV", "Stage III"))
+table(fpkm$collapsed_stages)
+# reformat data and plot
+fpkm %>%
+  dplyr::select(LUSC_pval_ttest$mt_gene, collapsed_stages) %>%
+  dplyr::filter(!is.na(collapsed_stages)) %>%
+  pivot_longer(cols = LUSC_pval_ttest$mt_gene,
+               names_to = "gene", values_to = "expression") %>%
+  ggplot() +
+    geom_boxplot(aes(collapsed_stages, expression)) +
+    facet_wrap("gene") +
+    labs(y = "log2 expression",
+         x = "stage") +
+    scale_x_discrete(
+      labels = c("Stage I"="I", "Stage II"="II", "Stage III"="III/IV")) +
+    theme_bw()
+```
+
+### LUSC: Does overexpression vary with smoking?
+
+fpkm$paper_Smoking.Status
